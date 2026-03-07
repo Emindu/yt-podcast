@@ -49,13 +49,10 @@ def download_audio(url: str) -> tuple:
                 "preferredquality": "192",
             }
         ],
-        "extractor_args": {"youtube": {"player_client": ["ios"]}},
+        "extractor_args": {"youtube": {"player_client": ["tv_embedded"]}},
         "quiet": True,
         "no_warnings": True,
     }
-    cookies_file = os.environ.get("COOKIES_FILE")
-    if cookies_file and Path(cookies_file).exists():
-        ydl_opts["cookiefile"] = cookies_file
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
 
