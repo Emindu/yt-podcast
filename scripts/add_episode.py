@@ -49,6 +49,7 @@ def download_audio(url: str) -> tuple:
                 "preferredquality": "192",
             }
         ],
+        "remote_components": "ejs:github",
         "quiet": True,
         "no_warnings": True,
     }

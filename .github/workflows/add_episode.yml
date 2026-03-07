@@ -37,7 +37,7 @@ jobs:
         run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/cookies.txt
 
       - name: List available formats (debug)
-        run: yt-dlp --cookies /tmp/cookies.txt --list-formats "${{ github.event.inputs.url }}" || true
+        run: yt-dlp --cookies /tmp/cookies.txt --remote-components ejs:github --list-formats "${{ github.event.inputs.url }}" || true
 
       - name: Download and add episode
         env:
