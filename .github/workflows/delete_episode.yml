@@ -1,0 +1,41 @@
+name: Delete Episode
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: "YouTube Video ID (e.g. dQw4w9WgXcQ)"
+        required: true
+        type: string
+
+jobs:
+  delete-episode:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install feedgen requests
+
+      - name: Delete episode
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python scripts/delete_episode.py "${{ github.event.inputs.video_id }}"
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/episodes.json docs/feed.xml
+          git diff --staged --quiet || git commit -m "Remove episode ${{ github.event.inputs.video_id }}"
+          git push
