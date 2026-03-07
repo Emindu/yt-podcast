@@ -28,10 +28,14 @@ jobs:
           sudo apt-get install -y ffmpeg
           pip install yt-dlp feedgen requests
 
+      - name: Write YouTube cookies
+        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/cookies.txt
+
       - name: Download and add episode
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          COOKIES_FILE: /tmp/cookies.txt
         run: python scripts/add_episode.py "${{ github.event.inputs.url }}"
 
       - name: Commit and push changes
