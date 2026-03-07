@@ -40,7 +40,7 @@ def get_pages_base_url() -> str:
 def download_audio(url: str) -> tuple:
     tmp = Path(tempfile.mkdtemp())
     ydl_opts = {
-        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+        "format": "bestaudio/best/b",
         "outtmpl": str(tmp / "%(id)s.%(ext)s"),
         "postprocessors": [
             {

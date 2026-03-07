@@ -31,6 +31,9 @@ jobs:
       - name: Write YouTube cookies
         run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/cookies.txt
 
+      - name: List available formats (debug)
+        run: yt-dlp --cookies /tmp/cookies.txt --list-formats "${{ github.event.inputs.url }}" || true
+
       - name: Download and add episode
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
