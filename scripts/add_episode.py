@@ -40,7 +40,7 @@ def get_pages_base_url() -> str:
 def download_audio(url: str) -> tuple:
     tmp = Path(tempfile.mkdtemp())
     ydl_opts = {
-        "format": "bestaudio/best/b",
+        "format": "bestaudio/best",
         "outtmpl": str(tmp / "%(id)s.%(ext)s"),
         "postprocessors": [
             {
@@ -49,6 +49,7 @@ def download_audio(url: str) -> tuple:
                 "preferredquality": "192",
             }
         ],
+        "extractor_args": {"youtube": {"player_client": ["ios"]}},
         "quiet": True,
         "no_warnings": True,
     }
