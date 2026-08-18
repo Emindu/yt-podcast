@@ -104,12 +104,11 @@ def upload_asset(release: dict, mp3_path: Path, filename: str) -> str:
     return r.json()["browser_download_url"]
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/add_episode.py <youtube_url>")
-        sys.exit(1)
+def add_episode_to_list(url: str, episodes: list) -> dict | None:
+    """Downloads a video and prepends its episode entry to `episodes`.
 
-    url = sys.argv[1]
+    Returns the new episode dict, or None if it was already present.
+    """
     print(f"Downloading audio from: {url}")
     info, mp3_path = download_audio(url)
 
@@ -118,38 +117,48 @@ def main():
     filename = f"{video_id}.mp3"
     print(f"Downloaded: {title}")
 
+    if any(e["id"] == video_id for e in episodes):
+        print(f"Episode {video_id} already in feed. Skipping.")
+        return None
+
     release = get_or_create_release(video_id, title)
     audio_url = upload_asset(release, mp3_path, filename)
     print(f"Audio URL: {audio_url}")
 
-    episodes_file = Path("data/episodes.json")
-    episodes = load_episodes()
+    episode = {
+        "id": video_id,
+        "title": title,
+        "description": info.get("description", ""),
+        "duration": info.get("duration", 0),
+        "filename": filename,
+        "audio_url": audio_url,
+        "thumbnail": info.get("thumbnail", ""),
+        "uploader": info.get("uploader", "Unknown"),
+        "upload_date": info.get("upload_date", ""),
+        "file_size": mp3_path.stat().st_size,
+    }
+    episodes.insert(0, episode)
+    return episode
 
-    if any(e["id"] == video_id for e in episodes):
-        print(f"Episode {video_id} already in feed. Skipping.")
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python scripts/add_episode.py <youtube_url>")
+        sys.exit(1)
+
+    url = sys.argv[1]
+    episodes = load_episodes()
+    episode = add_episode_to_list(url, episodes)
+
+    if episode is None:
         sys.exit(0)
 
-    episodes.insert(
-        0,
-        {
-            "id": video_id,
-            "title": title,
-            "description": info.get("description", ""),
-            "duration": info.get("duration", 0),
-            "filename": filename,
-            "audio_url": audio_url,
-            "thumbnail": info.get("thumbnail", ""),
-            "uploader": info.get("uploader", "Unknown"),
-            "upload_date": info.get("upload_date", ""),
-            "file_size": mp3_path.stat().st_size,
-        },
-    )
-    episodes_file.write_text(json.dumps(episodes, indent=2))
+    Path("data/episodes.json").write_text(json.dumps(episodes, indent=2))
     print(f"episodes.json updated ({len(episodes)} episodes)")
 
     pages_base_url = get_pages_base_url()
     generate_feed(episodes, pages_base_url)
-    print(f"Done! Episode added: {title}")
+    print(f"Done! Episode added: {episode['title']}")
     print(f"Feed URL: {pages_base_url}/feed.xml")
 
 

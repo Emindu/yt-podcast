@@ -25,9 +25,11 @@ youtube_to_apple_podcast/
 ├── .github/
 │   └── workflows/
 │       ├── add_episode.yml      # Workflow to add a YouTube video
+│       ├── add_playlist.yml     # Workflow to add every video in a YouTube playlist
 │       └── delete_episode.yml   # Workflow to remove an episode
 ├── scripts/
 │   ├── add_episode.py           # Downloads audio, uploads to Releases, updates feed
+│   ├── add_playlist.py          # Expands a playlist into episodes, then reuses add_episode logic
 │   └── delete_episode.py        # Removes episode and deletes its Release
 ├── data/
 │   └── episodes.json            # Episode metadata (committed to repo)
@@ -98,6 +100,26 @@ The workflow will take 2–5 minutes. It will:
 - Update `data/episodes.json`
 - Regenerate `docs/feed.xml`
 - Commit and push the changes
+
+---
+
+## Adding a Playlist
+
+1. Go to your repository on GitHub
+2. Click **Actions** (top nav)
+3. Click **Add Playlist** (left sidebar)
+4. Click **Run workflow** (top right)
+5. Paste the YouTube **playlist URL** (or just the playlist ID, e.g. `PLxxxxxxxx`) into the input field
+6. Click **Run workflow**
+
+The workflow will take longer than a single episode since every video in the playlist is downloaded and uploaded in turn. It will:
+- List every video in the playlist
+- Download each one as MP3 and upload it to GitHub Releases
+- Skip any video that's already in the feed (safe to re-run on the same playlist later to pick up new videos)
+- Update `data/episodes.json` and regenerate `docs/feed.xml` once at the end
+- Commit and push the changes
+
+All videos are added as episodes of your single podcast feed (in the order they appear in the playlist). If you want a separate podcast per playlist, fork this repo again (or add another `podcast.json`/feed pair) and run the playlist workflow there.
 
 ---
 

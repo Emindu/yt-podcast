@@ -1,0 +1,56 @@
+name: Add Playlist
+
+on:
+  workflow_dispatch:
+    inputs:
+      playlist:
+        description: "YouTube Playlist URL or ID"
+        required: true
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  add-playlist:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Deno (required for yt-dlp JS challenge)
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          pip install yt-dlp feedgen requests
+
+      - name: Write YouTube cookies
+        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/cookies.txt
+
+      - name: Download and add playlist episodes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COOKIES_FILE: /tmp/cookies.txt
+        run: python scripts/add_playlist.py "${{ github.event.inputs.playlist }}"
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/episodes.json docs/feed.xml
+          git diff --staged --quiet || git commit -m "Add episodes from playlist ${{ github.event.inputs.playlist }}"
+          git push
