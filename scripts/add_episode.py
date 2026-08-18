@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import requests
@@ -37,8 +38,11 @@ def get_pages_base_url() -> str:
     return f"https://{owner}.github.io/{repo_name}"
 
 
-def download_audio(url: str) -> tuple:
-    tmp = Path(tempfile.mkdtemp())
+DOWNLOAD_RETRIES = 3
+DOWNLOAD_RETRY_DELAY = 10  # seconds
+
+
+def build_ydl_opts(tmp: Path) -> dict:
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": str(tmp / "%(id)s.%(ext)s"),
@@ -50,17 +54,61 @@ def download_audio(url: str) -> tuple:
             }
         ],
         "remote_components": "ejs:github",
+        "extractor_retries": 3,
+        "fragment_retries": 3,
         "quiet": True,
         "no_warnings": True,
     }
     cookies_file = os.environ.get("COOKIES_FILE")
     if cookies_file and Path(cookies_file).exists():
         ydl_opts["cookiefile"] = cookies_file
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
+    return ydl_opts
 
-    mp3_path = tmp / f"{info['id']}.mp3"
-    return info, mp3_path
+
+def download_audio(url: str) -> tuple:
+    tmp = Path(tempfile.mkdtemp())
+    ydl_opts = build_ydl_opts(tmp)
+
+    last_error = None
+    for attempt in range(1, DOWNLOAD_RETRIES + 1):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            mp3_path = tmp / f"{info['id']}.mp3"
+            return info, mp3_path
+        except yt_dlp.utils.DownloadError as e:
+            last_error = e
+            if attempt < DOWNLOAD_RETRIES:
+                print(
+                    f"Download attempt {attempt}/{DOWNLOAD_RETRIES} failed "
+                    f"({e}); retrying in {DOWNLOAD_RETRY_DELAY}s..."
+                )
+                time.sleep(DOWNLOAD_RETRY_DELAY)
+
+    raise last_error
+
+
+def download_playlist(playlist_url: str):
+    """Downloads every video in a playlist using a single yt-dlp session
+    (exactly the same download options as a single-video download), and
+    yields (info, mp3_path) for each video in playlist order.
+    """
+    tmp = Path(tempfile.mkdtemp())
+    ydl_opts = build_ydl_opts(tmp)
+    ydl_opts["ignoreerrors"] = True
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        playlist_info = ydl.extract_info(playlist_url, download=True)
+
+    entries = playlist_info.get("entries") or [playlist_info]
+    for entry in entries:
+        if not entry:
+            continue
+        mp3_path = tmp / f"{entry['id']}.mp3"
+        if mp3_path.exists():
+            yield entry, mp3_path
+        else:
+            print(f"Skipping {entry.get('id')}: no audio file produced (download failed).")
 
 
 def get_or_create_release(video_id: str, title: str) -> dict:
@@ -104,18 +152,14 @@ def upload_asset(release: dict, mp3_path: Path, filename: str) -> str:
     return r.json()["browser_download_url"]
 
 
-def add_episode_to_list(url: str, episodes: list) -> dict | None:
-    """Downloads a video and prepends its episode entry to `episodes`.
-
-    Returns the new episode dict, or None if it was already present.
+def upload_episode(info: dict, mp3_path: Path, episodes: list) -> dict | None:
+    """Uploads an already-downloaded video and prepends its episode entry
+    to `episodes`. Returns the new episode dict, or None if it was already
+    present.
     """
-    print(f"Downloading audio from: {url}")
-    info, mp3_path = download_audio(url)
-
     video_id = info["id"]
     title = info.get("title", "Unknown")
     filename = f"{video_id}.mp3"
-    print(f"Downloaded: {title}")
 
     if any(e["id"] == video_id for e in episodes):
         print(f"Episode {video_id} already in feed. Skipping.")
@@ -139,6 +183,18 @@ def add_episode_to_list(url: str, episodes: list) -> dict | None:
     }
     episodes.insert(0, episode)
     return episode
+
+
+def add_episode_to_list(url: str, episodes: list) -> dict | None:
+    """Downloads a single video and prepends its episode entry to `episodes`.
+
+    Returns the new episode dict, or None if it was already present.
+    """
+    print(f"Downloading audio from: {url}")
+    info, mp3_path = download_audio(url)
+    title = info.get("title", "Unknown")
+    print(f"Downloaded: {title}")
+    return upload_episode(info, mp3_path, episodes)
 
 
 def main():
