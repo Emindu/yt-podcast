@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import requests
@@ -37,6 +38,10 @@ def get_pages_base_url() -> str:
     return f"https://{owner}.github.io/{repo_name}"
 
 
+DOWNLOAD_RETRIES = 3
+DOWNLOAD_RETRY_DELAY = 10  # seconds
+
+
 def download_audio(url: str) -> tuple:
     tmp = Path(tempfile.mkdtemp())
     ydl_opts = {
@@ -50,17 +55,32 @@ def download_audio(url: str) -> tuple:
             }
         ],
         "remote_components": "ejs:github",
+        "extractor_retries": 3,
+        "fragment_retries": 3,
         "quiet": True,
         "no_warnings": True,
     }
     cookies_file = os.environ.get("COOKIES_FILE")
     if cookies_file and Path(cookies_file).exists():
         ydl_opts["cookiefile"] = cookies_file
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
 
-    mp3_path = tmp / f"{info['id']}.mp3"
-    return info, mp3_path
+    last_error = None
+    for attempt in range(1, DOWNLOAD_RETRIES + 1):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            mp3_path = tmp / f"{info['id']}.mp3"
+            return info, mp3_path
+        except yt_dlp.utils.DownloadError as e:
+            last_error = e
+            if attempt < DOWNLOAD_RETRIES:
+                print(
+                    f"Download attempt {attempt}/{DOWNLOAD_RETRIES} failed "
+                    f"({e}); retrying in {DOWNLOAD_RETRY_DELAY}s..."
+                )
+                time.sleep(DOWNLOAD_RETRY_DELAY)
+
+    raise last_error
 
 
 def get_or_create_release(video_id: str, title: str) -> dict:

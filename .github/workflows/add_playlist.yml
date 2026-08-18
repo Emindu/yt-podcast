@@ -35,7 +35,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          pip install yt-dlp feedgen requests
+          pip install -U yt-dlp feedgen requests
 
       - name: Write YouTube cookies
         run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/cookies.txt

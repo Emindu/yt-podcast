@@ -14,6 +14,7 @@ Required env vars:
 import os
 import sys
 import json
+import time
 from pathlib import Path
 
 import yt_dlp
@@ -82,6 +83,9 @@ def main():
         except Exception as e:
             print(f"Failed to process {url}: {e}")
             failed.append(url)
+
+        if i < len(video_urls):
+            time.sleep(5)
 
     pages_base_url = get_pages_base_url()
     generate_feed(episodes, pages_base_url)
