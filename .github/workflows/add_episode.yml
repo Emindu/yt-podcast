@@ -38,7 +38,12 @@ jobs:
           pip install -U yt-dlp feedgen requests
 
       - name: Write YouTube cookies
-        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/cookies.txt
+        run: |
+          echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/cookies.txt
+          if [ ! -s /tmp/cookies.txt ]; then
+            echo "::error::YOUTUBE_COOKIES secret is missing or empty. YouTube will reject the download with 'Sign in to confirm you're not a bot'. Export fresh cookies from a logged-in browser (e.g. with the 'Get cookies.txt' extension) and update the YOUTUBE_COOKIES repository secret."
+            exit 1
+          fi
 
       - name: List available formats (debug)
         run: yt-dlp --cookies /tmp/cookies.txt --remote-components ejs:github --list-formats "${{ github.event.inputs.url }}" || true

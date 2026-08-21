@@ -60,8 +60,15 @@ def build_ydl_opts(tmp: Path) -> dict:
         "no_warnings": True,
     }
     cookies_file = os.environ.get("COOKIES_FILE")
-    if cookies_file and Path(cookies_file).exists():
+    if cookies_file and Path(cookies_file).exists() and Path(cookies_file).stat().st_size > 0:
         ydl_opts["cookiefile"] = cookies_file
+    else:
+        print(
+            "WARNING: no usable cookies file found (COOKIES_FILE unset, missing, "
+            "or empty). YouTube is likely to block the download with a "
+            "'Sign in to confirm you’re not a bot' error. Refresh the "
+            "YOUTUBE_COOKIES secret with a fresh export from a logged-in browser."
+        )
     return ydl_opts
 
 
